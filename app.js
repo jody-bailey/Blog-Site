@@ -2,6 +2,7 @@
 
 const express = require("express");
 const bodyParser = require("body-parser");
+const mongoose = require('mongoose');
 const ejs = require("ejs");
 const _ = require('lodash');
 
@@ -11,7 +12,17 @@ const contactContent = "Scelerisque eleifend donec pretium vulputate sapien. Rho
 
 const app = express();
 
+mongoose.connect('mongodb://localhost:27017/test', {useNewUrlParser: true});
+
 const posts = [];
+
+const postsSchema = {
+  title: String,
+  content: String,
+  urlTitle: String
+};
+
+const Post = mongoose.model("Post", postsSchema);
 
 app.set('view engine', 'ejs');
 
@@ -19,7 +30,20 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
 app.get('/', function(req, res) {
-  res.render('home', {content: homeStartingContent, posts: posts});
+
+  Post.find({}, function(err, results) {
+    if(results.length !== 0) {
+      res.render("home", {content: homeStartingContent, posts: results});
+    } else {
+      res.render('home', {content: homeStartingContent, posts: results});
+    }
+
+    if(err) {
+      console.log(err);
+    }
+  });
+
+  //res.render('home', {content: homeStartingContent, posts: posts});
 });
 
 app.get('/about', function(req, res) {
@@ -40,13 +64,13 @@ app.post('/compose', function(req, res) {
   var urlTitle = _.lowerCase(title);
   urlTitle = _.kebabCase(urlTitle);
 
-  const post = {
+  const post = new Post({
     title: req.body.postTitle,
     content: req.body.postBody,
     urlTitle: urlTitle
-  };
+  });
 
-  posts.push(post);
+  post.save();
   res.redirect('/');
 });
 
@@ -55,23 +79,28 @@ app.get('/posts/:postTitle', function(req, res) {
   postTitle = _.lowerCase(postTitle);
   postTitle = _.kebabCase(postTitle);
 
-  for(var i = 0; i < posts.length; i++) {
-    var title = _.lowerCase(posts[i].title);
-    title = _.kebabCase(title);
-    if(title === postTitle) {
-      res.render('post', {postTitle: posts[i].title, postBody: posts[i].content});
-      break;
+  Post.findOne({title: req.params.postTitle}, function(err, result) {
+    console.log(result.title);
+    if(!err) {
+      res.render('post', {postTitle: result.title, postBody: result.content});
     } else {
-      console.log("No Match Found!");
+      console.log(err);
     }
-  }
+  });
+
+  // for(var i = 0; i < posts.length; i++) {
+  //   var title = _.lowerCase(posts[i].title);
+  //   title = _.kebabCase(title);
+  //   if(title === postTitle) {
+  //     res.render('post', {postTitle: posts[i].title, postBody: posts[i].content});
+  //     break;
+  //   } else {
+  //     console.log("No Match Found!");
+  //   }
+  // }
 });
 
-
-
-
-
-
 app.listen(3000, function() {
+  console.log("Yep, it should be working.");
   console.log("Server started on port 3000");
 });
